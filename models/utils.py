@@ -5,8 +5,9 @@ from typing import Any
 
 
 def karras_boundaries(sigma, eps, N, T):
-    """Boundaries for the time discretization from Karras et al (2022); https://arxiv.org/abs/2206.00364."""
-    return np.array([(eps ** (1 / sigma) + i / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma for i in range(N)])
+    """Boundaries for the time discretization."""
+    idx = np.arange(N)
+    return (eps ** (1 / sigma) + idx / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma
 
 
 def get_timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
