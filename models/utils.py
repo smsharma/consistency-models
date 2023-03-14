@@ -5,12 +5,12 @@ from typing import Any
 
 
 def karras_boundaries(sigma, eps, N, T):
-    """Boundaries for the time discretization."""
+    """Boundaries for the time discretization from Karras et al (2022); https://arxiv.org/abs/2206.00364."""
     return np.array([(eps ** (1 / sigma) + i / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma for i in range(N)])
 
 
 def get_timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
-    """Build sinusoidal embeddings (from Fairseq)."""
+    """Sinusoidal embeddings (from Fairseq)."""
 
     assert len(timesteps.shape) == 1
     timesteps *= 1000
@@ -27,10 +27,13 @@ def get_timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
 
 
 def apply_ema_decay(state, ema_decay):
+    """Apply exponential moving average (EMA) decay to the model parameters and return the updated state."""
     params_ema = jax.tree_map(lambda p_ema, p: p_ema * ema_decay + p * (1.0 - ema_decay), state.params_ema, state.params)
     state = state.replace(params_ema=params_ema)
     return state
 
 
 class TrainState(train_state.TrainState):
+    """TrainState container class with an extra attribute for the EMA parameters."""
+
     params_ema: Any = None

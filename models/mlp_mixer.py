@@ -33,7 +33,7 @@ class ChannelMixingBlock(nn.Module):
 
 
 class MLPMixer(nn.Module):
-    """An img2img MLP-Mixer."""
+    """An image-to-image MLP-Mixer."""
 
     patch_size: int
     channels: int
