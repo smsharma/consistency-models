@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
+from einops import repeat
 
 
 class ChannelMixingBlock(nn.Module):
@@ -41,7 +42,16 @@ class MLPMixer(nn.Module):
     num_blocks: int
 
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x, t):
+
+        b, h, w, c = x.shape
+
+        # Repeat time context across spatial dimensions
+        t = repeat(t, "b t -> b (h p1) (w p2) t", h=x.shape[1] // self.patch_size, w=x.shape[2] // self.patch_size, p1=self.patch_size, p2=self.patch_size)
+
+        # Concatenate time context to each patch
+        x = jnp.concatenate([x, t], axis=-1)
+
         # Split the image into patches
         x = nn.Conv(features=self.channels, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size))(x)
 
@@ -53,8 +63,8 @@ class MLPMixer(nn.Module):
             x = ChannelMixingBlock(self.channels, self.tokens_dim, self.mlp_dim)(x)
 
         # Combine tokens into image
-        output_size = int(jnp.sqrt(x.shape[1])) * self.patch_size
-        x = jnp.reshape(x, (x.shape[0], int(output_size / self.patch_size), int(output_size / self.patch_size), self.channels))
+        output_size = h
+        x = jnp.reshape(x, (x.shape[0], output_size // self.patch_size, output_size // self.patch_size, self.channels))
         x = nn.ConvTranspose(features=self.channels, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size))(x)
 
         return x
