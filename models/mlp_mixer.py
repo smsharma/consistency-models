@@ -1,70 +1,65 @@
+import dataclasses
+
+from typing import Optional, Tuple
+
+import einops
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-from flax import linen as nn
-from einops import repeat
 
 
-class ChannelMixingBlock(nn.Module):
-    """A channel mixing block."""
-
-    channels: int
-    tokens_dim: int
+class MlpBlock(nn.Module):
     mlp_dim: int
 
     @nn.compact
     def __call__(self, x):
-        # Layer normalization
-        x = nn.LayerNorm()(x)
-
-        # Token mixing
-        y = nn.Dense(features=self.mlp_dim)(x)
+        y = nn.Dense(self.mlp_dim)(x)
         y = nn.gelu(y)
-        y = nn.Dense(features=self.tokens_dim)(y)
-        y = nn.softmax(y, axis=1)
-        z = jnp.einsum("bij,bkj->bik", y, x)
+        return nn.Dense(x.shape[-1])(y)
 
-        # Channel mixing
-        z = nn.Conv(features=self.channels, kernel_size=(1, 1))(z)
 
-        # Residual connection
-        x = x + z
+class MixerBlock(nn.Module):
+    """Mixer block layer."""
 
-        return x
+    tokens_mlp_dim: int
+    channels_mlp_dim: int
+
+    @nn.compact
+    def __call__(self, x):
+        y = nn.LayerNorm()(x)
+        y = jnp.swapaxes(y, 1, 2)
+        y = MlpBlock(self.tokens_mlp_dim)(y)
+        y = jnp.swapaxes(y, 1, 2)
+        x = x + y
+        y = nn.LayerNorm()(x)
+        y = MlpBlock(self.channels_mlp_dim)(y)
+        return x + y
 
 
 class MLPMixer(nn.Module):
-    """An image-to-image MLP-Mixer."""
+    """Mixer architecture."""
 
     patch_size: int
-    channels: int
-    tokens_dim: int
-    mlp_dim: int
     num_blocks: int
+    hidden_dim: int
+    tokens_mlp_dim: int
+    channels_mlp_dim: int
 
     @nn.compact
-    def __call__(self, x, t):
-
+    def __call__(self, x, context):
         b, h, w, c = x.shape
 
         # Repeat time context across spatial dimensions
-        t = repeat(t, "b t -> b (h p1) (w p2) t", h=x.shape[1] // self.patch_size, w=x.shape[2] // self.patch_size, p1=self.patch_size, p2=self.patch_size)
+        t = einops.repeat(context, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
 
         # Concatenate time context to each patch
         x = jnp.concatenate([x, t], axis=-1)
 
-        # Split the image into patches
-        x = nn.Conv(features=self.channels, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size))(x)
-
-        # Reshape patches to 1D tokens
-        x = jnp.reshape(x, (x.shape[0], -1, x.shape[-1]))
-
-        # Apply channel mixing blocks
-        for _ in range(self.num_blocks):
-            x = ChannelMixingBlock(self.channels, self.tokens_dim, self.mlp_dim)(x)
-
-        # Combine tokens into image
-        output_size = h
-        x = jnp.reshape(x, (x.shape[0], output_size // self.patch_size, output_size // self.patch_size, self.channels))
-        x = nn.ConvTranspose(features=self.channels, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size))(x)
-
+        x = nn.Conv(self.hidden_dim, [self.patch_size, self.patch_size], strides=[self.patch_size, self.patch_size])(x)
+        x = einops.rearrange(x, "n h w c -> n (h w) c")
+        for i in range(self.num_blocks):
+            x = MixerBlock(self.tokens_mlp_dim, self.channels_mlp_dim)(x)
+        x = nn.LayerNorm()(x)
+        x = nn.Dense(self.patch_size * self.patch_size * c)(x)
+        x = einops.rearrange(x, "B (Hp Wp) (pH pW C) -> B (Hp pH) (Wp pW) C", Hp=h // self.patch_size, Wp=w // self.patch_size, pH=self.patch_size, pW=self.patch_size, C=c)
         return x
