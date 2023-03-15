@@ -7,5 +7,5 @@ A simple implementation of the discrete-timesteps version is in the notebook [co
 
 ## Samples
 
-Samples obtained for 5- and 2-step generation, MNIST trained over 70k steps.
+Samples obtained for 5- and 2-step generation, MNIST trained over 200k steps.
 ![5- and 2-step samples for MNIST.](notebooks/plots/mnist_samples.png)
