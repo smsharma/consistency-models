@@ -4,13 +4,13 @@ from flax.training import train_state
 from typing import Any
 
 
-def karras_boundaries(sigma, eps, N, T):
+def timestep_discretization(sigma, eps, N, T):
     """Boundaries for the time discretization."""
     idx = np.arange(N)
     return (eps ** (1 / sigma) + idx / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma
 
 
-def get_timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
+def timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
     """Sinusoidal embeddings (from Fairseq)."""
 
     assert len(timesteps.shape) == 1

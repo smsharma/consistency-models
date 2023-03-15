@@ -1,14 +1,11 @@
-import dataclasses
-
-from typing import Optional, Tuple
-
 import einops
 import flax.linen as nn
-import jax
-import jax.numpy as jnp
+import jax.numpy as np
 
 
-class MlpBlock(nn.Module):
+class MLPBlock(nn.Module):
+    """MLP block layer."""
+
     mlp_dim: int
 
     @nn.compact
@@ -27,17 +24,17 @@ class MixerBlock(nn.Module):
     @nn.compact
     def __call__(self, x):
         y = nn.LayerNorm()(x)
-        y = jnp.swapaxes(y, 1, 2)
-        y = MlpBlock(self.tokens_mlp_dim)(y)
-        y = jnp.swapaxes(y, 1, 2)
+        y = np.swapaxes(y, 1, 2)
+        y = MLPBlock(self.tokens_mlp_dim)(y)
+        y = np.swapaxes(y, 1, 2)
         x = x + y
         y = nn.LayerNorm()(x)
-        y = MlpBlock(self.channels_mlp_dim)(y)
+        y = MLPBlock(self.channels_mlp_dim)(y)
         return x + y
 
 
 class MLPMixer(nn.Module):
-    """Mixer architecture."""
+    """MLP-Mixer architecture from https://arxiv.org/abs/2105.01601."""
 
     patch_size: int
     num_blocks: int
@@ -52,14 +49,20 @@ class MLPMixer(nn.Module):
         # Repeat time context across spatial dimensions
         t = einops.repeat(context, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
 
-        # Concatenate time context to each patch
-        x = jnp.concatenate([x, t], axis=-1)
+        # Concatenate time context to image (alt.: concat to patch?)
+        x = np.concatenate([x, t], axis=-1)
 
+        # Create patches
         x = nn.Conv(self.hidden_dim, [self.patch_size, self.patch_size], strides=[self.patch_size, self.patch_size])(x)
         x = einops.rearrange(x, "n h w c -> n (h w) c")
-        for i in range(self.num_blocks):
+
+        # Apply mixer blocks
+        for _ in range(self.num_blocks):
             x = MixerBlock(self.tokens_mlp_dim, self.channels_mlp_dim)(x)
         x = nn.LayerNorm()(x)
+
+        # Project back to image
         x = nn.Dense(self.patch_size * self.patch_size * c)(x)
-        x = einops.rearrange(x, "B (Hp Wp) (pH pW C) -> B (Hp pH) (Wp pW) C", Hp=h // self.patch_size, Wp=w // self.patch_size, pH=self.patch_size, pW=self.patch_size, C=c)
+        x = einops.rearrange(x, "b (hp wp) (ph pw c) -> b (hp ph) (wp pw) c", hp=h // self.patch_size, wp=w // self.patch_size, ph=self.patch_size, pw=self.patch_size, c=c)
+
         return x
