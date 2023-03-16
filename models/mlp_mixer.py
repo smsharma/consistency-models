@@ -41,16 +41,28 @@ class MLPMixer(nn.Module):
     hidden_dim: int
     tokens_mlp_dim: int
     channels_mlp_dim: int
+    num_classes: int
 
     @nn.compact
-    def __call__(self, x, context):
+    def __call__(self, x, t, context):
         b, h, w, c = x.shape
 
-        # Repeat time context across spatial dimensions
-        t = einops.repeat(context, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
+        d_t_emb = t.shape[-1]
 
-        # Concatenate time context to image (alt.: concat to patch?)
-        x = np.concatenate([x, t], axis=-1)
+        # Embed context to same dim as time embedding and repeat across spatial dimensions
+        context = nn.Embed(self.num_classes, t.shape[-1])(context)
+        context = einops.repeat(context, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
+
+        # Repeat time across spatial dimensions; concat to class context
+        t = einops.repeat(t, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
+        context = np.concatenate([context, t], axis=-1)
+
+        # Smell element-wise MLP to process context
+        context = nn.gelu(nn.Dense(self.tokens_mlp_dim)(context))
+        context = nn.Dense(d_t_emb)(context)
+
+        # Concatenate time context to image (alternatively, concat to patch?)
+        x = np.concatenate([x, context], axis=-1)
 
         # Create patches
         x = nn.Conv(self.hidden_dim, [self.patch_size, self.patch_size], strides=[self.patch_size, self.patch_size])(x)

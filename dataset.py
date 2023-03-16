@@ -1,56 +1,55 @@
-import jax.numpy as jnp
+import jax
+import flax
+import tensorflow as tf
 import tensorflow_datasets as tfds
+from clu import deterministic_data
 
 
-class DatasetIterator:
-    def __init__(self, dataset_name, split, batch_size):
-        if dataset_name == "mnist":
-            self.ds = tfds.load("mnist", split=split, shuffle_files=True)
-            self.preprocess_fn = self._preprocess_mnist
-        elif dataset_name == "cifar10":
-            self.ds = tfds.load("cifar10", split=split, shuffle_files=True)
-            self.ds = self.ds.batch(batch_size)
-            self.preprocess_fn = self._preprocess_cifar10
-        else:
-            raise ValueError("Unknown dataset: {}".format(dataset_name))
-
-        self.ds = iter(self.ds)
+class Dataset:
+    def __init__(self, dataset_name="mnist", batch_size=128):
+        self.dataset_name = dataset_name
+        self.dataset_builder = tfds.builder(dataset_name)
+        self.dataset_builder.download_and_prepare()
+        self.train_split = tfds.split_for_jax_process("train", drop_remainder=True)
         self.batch_size = batch_size
 
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        batch = []
-        for i in range(self.batch_size):
-            try:
-                item = next(self.ds)
-            except StopIteration:
-                self.ds = iter(self.ds)
-                item = next(self.ds)
-            batch.append(item)
-        images, labels = self.preprocess_fn(batch)
-        return images, labels
-
     def _preprocess_mnist(self, batch):
-        mean, std = 0.1307, 0.3081
-        images = [x["image"] for x in batch]
-        # Flatten the images and normalize their pixel values to [0, 1]
-        images = jnp.reshape(jnp.stack(images), (-1, 28 * 28)) / 255.0
-        images = (images - mean) / std
-        labels = [x["label"] for x in batch]
-        # One-hot encode the labels
-        labels = jnp.eye(10)[jnp.array(labels)]
+        images = tf.cast(batch["image"], "float32") / 255
+        images = images * 2 - 1
+        labels = batch["label"]
         return images, labels
 
     def _preprocess_cifar10(self, batch):
-        # Mean and standard deviation of the CIFAR-10 dataset
-        mean = jnp.array([0.4914, 0.4822, 0.4465])
-        std = jnp.array([0.2023, 0.1994, 0.2010])
-        images = jnp.stack([x["image"] for x in batch])
-        # Normalize the images using the mean and standard deviation
-        images = (images - mean) / std
-        labels = [x["label"] for x in batch]
-        # One-hot encode the labels
-        labels = jnp.eye(10)[jnp.array(labels)]
+        images = tf.cast(batch["image"], "float32") / 255
+        images = images * 2 - 1
+        labels = batch["label"]
         return images, labels
+
+    def create_dataset(self):
+        preprocess_fn = self._preprocess_mnist if self.dataset_name == "mnist" else self._preprocess_cifar10
+
+        train_ds = deterministic_data.create_dataset(self.dataset_builder, split=self.train_split, rng=jax.random.PRNGKey(0), shuffle_buffer_size=100, batch_dims=[jax.local_device_count(), self.batch_size // jax.device_count()], num_epochs=None, preprocess_fn=preprocess_fn, shuffle=True)
+        return train_ds
+
+    def create_input_iter(self, ds):
+        def _prepare(xs):
+            def _f(x):
+                x = x._numpy()
+                return x
+
+            return jax.tree_util.tree_map(_f, xs)
+
+        it = map(_prepare, ds)
+        it = flax.jax_utils.prefetch_to_device(it, 2)
+        return it
+
+
+# MNIST
+mnist_dataset = Dataset("mnist")
+mnist_train_ds = mnist_dataset.create_dataset()
+mnist_batches = mnist_dataset.create_input_iter(mnist_train_ds)
+
+# CIFAR-10
+cifar10_dataset = Dataset("cifar10")
+cifar10_train_ds = cifar10_dataset.create_dataset()
+cifar10_batches = cifar10_dataset.create_input_iter(cifar10_train_ds)
