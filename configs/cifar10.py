@@ -16,7 +16,7 @@ def get_config():
 
     # Vartiational diffusion model
     config.consistency = consistency = ml_collections.ConfigDict()
-    consistency.d_t_embed = 16
+    consistency.d_t_embed = 8
     consistency.sigma_data = 0.5
     consistency.s0 = 2
     consistency.s1 = 150
@@ -27,9 +27,9 @@ def get_config():
 
     # Score model (MLP Mixer)
     config.score = score = ml_collections.ConfigDict()
-    score.patch_size = 4
-    score.num_blocks = 6
-    score.hidden_dim = 128
+    score.patch_size = 2
+    score.num_blocks = 12
+    score.hidden_dim = 256
     score.tokens_mlp_dim = 512
     score.channels_mlp_dim = 512
 
@@ -49,7 +49,7 @@ def get_config():
 
     # Optimizer (AdamW)
     config.optim = optim = ml_collections.ConfigDict()
-    optim.learning_rate = 6e-4
+    optim.learning_rate = 3e-4
     optim.weight_decay = 1e-4
 
     config.seed = 42

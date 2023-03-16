@@ -7,7 +7,7 @@ A minified, self-contained implementation of the discrete version of the model t
 
 ## Usage
 
-Train and logging (through Weights & Biases):
+Train and logging (optional, through `wandb`):
 ```
 python train.py --config ./config/cifar10.py
 ```

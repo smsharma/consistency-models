@@ -19,7 +19,7 @@ def f_theta(params, score, x, t, y, sigma_data, eps, d_t_embed):
 
 
 def timestep_discretization(sigma, eps, N, T):
-    """Boundaries for the time discretization."""
+    """Boundaries for the time discretization (from Karras et al, 2022)."""
     idx = np.arange(N)
     return (eps ** (1 / sigma) + idx / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma
 
@@ -42,7 +42,7 @@ def timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
 
 
 def sample(params, score, config, y, timesteps, key, shape=(16, 28, 28, 1)):
-    """Draw a sample from consistency model."""
+    """Draw samples from consistency model."""
     x0 = jax.random.normal(key, shape) * timesteps[0]
     x = f_theta(params, score, x0, np.repeat(timesteps[0], x0.shape[0])[:, None], y, config.sigma_data, config.eps, config.d_t_embed)
     for t in timesteps[1:]:
@@ -55,7 +55,7 @@ def sample(params, score, config, y, timesteps, key, shape=(16, 28, 28, 1)):
 
 @partial(jax.jit, static_argnums=(5, 8, 9, 10))
 def loss_fn_discrete(params, params_ema, x, t1, t2, score, key, y, sigma_data, eps, d_t_embed):
-    """Discrete  consistency loss function."""
+    """Discrete consistency loss function."""
 
     z = jax.random.normal(key, shape=x.shape)
 

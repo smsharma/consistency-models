@@ -64,7 +64,7 @@ def train(config: ml_collections.ConfigDict, workdir: str = "./logging/") -> tra
 
     logging.info("Loaded the %s dataset", config.data.dataset)
 
-    ## Model configuration
+    ## Model confituration and instantiation
     score = MLPMixer(num_classes=config.data.num_classes, **config.score)
 
     x_batch, y_batch = next(batches)
@@ -122,7 +122,7 @@ def train(config: ml_collections.ConfigDict, workdir: str = "./logging/") -> tra
             # Eval periodically
             if (step % config.training.eval_every_steps == 0) and (step != 0) and (jax.process_index() == 0) and (config.wandb.log_train):
                 rng, _ = jax.random.split(rng)
-                log_eval_grid(state, score, rng, config.consistency, (16, *x.shape[1:]))
+                log_eval_grid(unreplicate(pstate), score, rng, config.consistency, (16, *x.shape[1:]))
 
             # Save checkpoints periodically
             if (step % config.training.save_every_steps == 0) and (step != 0) and (jax.process_index() == 0):

@@ -60,7 +60,7 @@ class TrainState(train_state.TrainState):
     params_ema: Any = None
 
 
-def log_eval_grid(state, score, key, config, shape):
+def log_eval_grid(state, score, key, config, shape, log_wandb=True):
 
     y = np.arange(16) % 10
     T = config.T
@@ -84,4 +84,5 @@ def log_eval_grid(state, score, key, config, shape):
 
     plt.tight_layout()
 
-    wandb.log({"eval/grid": fig})
+    if log_wandb:
+        wandb.log({"eval/grid": fig})
