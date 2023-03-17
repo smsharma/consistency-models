@@ -16,7 +16,7 @@ def get_config():
 
     # Vartiational diffusion model
     config.consistency = consistency = ml_collections.ConfigDict()
-    consistency.d_t_embed = 8
+    consistency.d_t_embed = 16
     consistency.sigma_data = 0.5
     consistency.s0 = 2
     consistency.s1 = 150
@@ -43,7 +43,7 @@ def get_config():
     # Training
     config.training = training = ml_collections.ConfigDict()
     training.half_precision = False
-    training.batch_size = 512  # Must be divisible by number of devices; this is the total batch size, not per-device
+    training.batch_size = 256  # Must be divisible by number of devices; this is the total batch size, not per-device
     training.n_train_steps = 1_001_000
     training.log_every_steps = 100
     training.eval_every_steps = 1000  # Eval not yet supported

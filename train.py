@@ -65,11 +65,14 @@ def train(config: ml_collections.ConfigDict, workdir: str = "./logging/") -> tra
 
     logging.info("Loaded the %s dataset", config.data.dataset)
 
-    ## Model confituration and instantiation
+    ## Model configuration and instantiation
+    score_dict = FrozenDict(config.score)
     if config.score.score == "unet":
-        score = UNet(num_classes=config.data.num_classes, **config.score)
+        score_dict.pop("score", None)
+        score = UNet(num_classes=config.data.num_classes, **score_dict)
     elif config.score.score == "mlp_mixer":
-        score = MLPMixer(num_classes=config.data.num_classes, **config.score)
+        score_dict.pop("score", None)
+        score = MLPMixer(num_classes=config.data.num_classes, **score_dict)
     else:
         raise NotImplementedError
 
