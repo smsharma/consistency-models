@@ -27,6 +27,6 @@ Samples with 5 (left) and 2 (right) step generation, MNIST trained over 200k ste
 
 ![5- and 2-step samples for MNIST.](notebooks/plots/mnist_samples.png)
 
-Samples with 5 (left) and 2 (right) step generation, MNIST trained over ~900k steps with a batch size of 512. These don't look... great, likely because of the choice of MLP-Mixer architecture backbone.
+Samples with 5 (left) and 2 (right) step generation, CIFAR-10 trained over ~900k steps with a batch size of 512. These don't look... great, likely because of the choice of MLP-Mixer architecture backbone.
 
 ![5- and 2-step samples for MNIST.](notebooks/plots/cifar10_samples.png)

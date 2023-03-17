@@ -32,6 +32,7 @@ from models.consistency_utils import timestep_discretization, loss_fn_discrete
 from dataset import Dataset
 
 from models.mlp_mixer import MLPMixer
+from models.unet import UNet
 
 replicate = flax.jax_utils.replicate
 unreplicate = flax.jax_utils.unreplicate
@@ -65,7 +66,12 @@ def train(config: ml_collections.ConfigDict, workdir: str = "./logging/") -> tra
     logging.info("Loaded the %s dataset", config.data.dataset)
 
     ## Model confituration and instantiation
-    score = MLPMixer(num_classes=config.data.num_classes, **config.score)
+    if config.score.score == "unet":
+        score = UNet(num_classes=config.data.num_classes, **config.score)
+    elif config.score.score == "mlp_mixer":
+        score = MLPMixer(num_classes=config.data.num_classes, **config.score)
+    else:
+        raise NotImplementedError
 
     x_batch, y_batch = next(batches)
     rng = jax.random.PRNGKey(42)

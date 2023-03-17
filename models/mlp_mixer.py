@@ -57,7 +57,7 @@ class MLPMixer(nn.Module):
         t = einops.repeat(t, "b t -> b (h p1) (w p2) t", h=h // self.patch_size, w=w // self.patch_size, p1=self.patch_size, p2=self.patch_size)
         context = np.concatenate([context, t], axis=-1)
 
-        # Smell element-wise MLP to process context
+        # Small element-wise MLP to process context
         context = nn.gelu(nn.Dense(self.tokens_mlp_dim)(context))
         context = nn.Dense(d_t_emb)(context)
 

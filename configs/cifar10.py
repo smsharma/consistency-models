@@ -25,13 +25,20 @@ def get_config():
     consistency.eps = 0.002
     consistency.T = 80.0
 
-    # Score model (MLP Mixer)
+    # # Score model (MLP-Mixer)
+    # config.score = score = ml_collections.ConfigDict()
+    # score.score = "mlp_mixer"
+    # score.patch_size = 2
+    # score.num_blocks = 12
+    # score.hidden_dim = 256
+    # score.tokens_mlp_dim = 512
+    # score.channels_mlp_dim = 512
+
+    # Score model (UNet)
     config.score = score = ml_collections.ConfigDict()
-    score.patch_size = 2
-    score.num_blocks = 12
-    score.hidden_dim = 256
-    score.tokens_mlp_dim = 512
-    score.channels_mlp_dim = 512
+    score.score = "unet"
+    score.hidden_channels = 64
+    score.num_layers = 4
 
     # Training
     config.training = training = ml_collections.ConfigDict()
