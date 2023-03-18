@@ -39,7 +39,7 @@ class UNet(nn.Module):
         # Embed context to same dim as time embedding and repeat across spatial dimensions
         d_t_emb = t.shape[-1]
         context = nn.Embed(self.num_classes, d_t_emb)(context)
-        conditioning = np.concatenate([context, t], axis=-1)
+        conditioning = jnp.concatenate([context, t], axis=-1)
 
         # Small element-wise MLP to process context
         conditioning = nn.gelu(nn.Dense(4 * conditioning.shape[-1])(conditioning))
