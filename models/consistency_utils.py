@@ -6,7 +6,7 @@ import math
 
 
 def f_theta(params, score, x, t, y, sigma_data, eps, d_t_embed):
-    """The consistency model."""
+    """The consistency model (Eqs. 4-5 of 2303.01469)."""
 
     c_skip = sigma_data**2 / ((t - eps) ** 2 + sigma_data**2)
     c_out = sigma_data * (t - eps) / np.sqrt(sigma_data**2 + t**2)
@@ -19,7 +19,7 @@ def f_theta(params, score, x, t, y, sigma_data, eps, d_t_embed):
 
 
 def timestep_discretization(sigma, eps, N, T):
-    """Boundaries for the time discretization (from Karras et al, 2022)."""
+    """Boundaries for the time discretization (from 2206.00364)."""
     idx = np.arange(N)
     return (eps ** (1 / sigma) + idx / (N - 1) * (T ** (1 / sigma) - eps ** (1 / sigma))) ** sigma
 
@@ -42,7 +42,7 @@ def timestep_embedding(timesteps, embedding_dim: int, dtype=np.float32):
 
 
 def sample(params, score, config, y, timesteps, key, shape=(16, 28, 28, 1)):
-    """Draw samples from consistency model."""
+    """Draw samples from consistency model (Algorithm 1 of 2303.01469)."""
     x0 = jax.random.normal(key, shape) * timesteps[0]
     x = f_theta(params, score, x0, np.repeat(timesteps[0], x0.shape[0])[:, None], y, config.sigma_data, config.eps, config.d_t_embed)
     for t in timesteps[1:]:
@@ -55,7 +55,7 @@ def sample(params, score, config, y, timesteps, key, shape=(16, 28, 28, 1)):
 
 @partial(jax.jit, static_argnums=(5, 8, 9, 10))
 def loss_fn_discrete(params, params_ema, x, t1, t2, score, key, y, sigma_data, eps, d_t_embed):
-    """Discrete consistency loss function."""
+    """Discrete consistency loss function (Algorithm 3 of 2303.01469)."""
 
     z = jax.random.normal(key, shape=x.shape)
 
@@ -68,18 +68,26 @@ def loss_fn_discrete(params, params_ema, x, t1, t2, score, key, y, sigma_data, e
     return np.mean((x1 - x2) ** 2)
 
 
-# @partial(jax.jit, static_argnums=(3,))
-# def loss_fn_continuous(params, x, t, score, key):
-#     """Continous consistency loss function."""
+@partial(jax.jit, static_argnums=(4,))
+def loss_fn_continuous(params, x, t, key, score, y):
+    """Continous consistency loss function."""
 
-#     z = jax.random.normal(key, shape=x.shape)
-#     xt = x + z * t[:, :, None, None]
+    def f_theta_unbatched(params, score, x, t, y):
+        """A dummy unbatched version of f_theta for jax.vmap."""
+        x = x[None, ...]
+        t = t[None, ...]
+        y = y[None, ...]
+        out = f_theta(params, score, x, t, y)[0, ...]
+        return out
 
-#     params_min = jax.lax.stop_gradient(params)
+    z = jax.random.normal(key, shape=x.shape)
+    xt = x + z * t[:, :, None, None]
 
-#     f_theta_vmapped = jax.vmap(f_theta, in_axes=(None, None, 0, 0))(params, score, x, t)
-#     d_f_theta_dx, d_f_theta_dt = jax.vmap(jax.jacfwd(f_theta, argnums=(2, 3)), in_axes=(None, None, 0, 0))(params_min, score, x, t)
+    params_min = jax.lax.stop_gradient(params)
 
-#     loss2 = d_f_theta_dt[..., 0] - np.einsum("bhwcijk,bijk->bhwc", d_f_theta_dx, (xt - x) / t[:, None, None])
+    f_theta_vmapped = jax.vmap(f_theta_unbatched, in_axes=(None, None, 0, 0, 0))(params, score, x, t, y)  # Can also just use f_theta without vmap here
+    d_f_theta_dx, d_f_theta_dt = jax.vmap(jax.jacfwd(f_theta_unbatched, argnums=(2, 3)), in_axes=(None, None, 0, 0, 0))(params_min, score, x, t, y)
 
-#     return 2 * np.mean(np.einsum("bijk,bijk->b", f_theta_vmapped, loss2))
+    loss2 = d_f_theta_dt[..., 0] - np.einsum("bhwcijk,bijk->bhwc", d_f_theta_dx, (xt - x) / t[:, None, None])
+
+    return 2 * np.mean(np.einsum("bijk,bijk->b", f_theta_vmapped, loss2))
