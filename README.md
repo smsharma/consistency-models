@@ -6,7 +6,7 @@ Implementation of Consistency Models, a class of diffusion-adjacent models intro
 
 When used as standalone generative models, consistency models achieve state of the art performance in one- and few-step generation, outperforming existing techniques distilling diffusion models.
 
-A minified, self-contained implementation of the discrete-time version of the model trained on MNIST is in the notebook [consistency-mnist.ipynb](notebooks/consistency-mnist.ipynb).
+A minified, self-contained implementation of the discrete-time version of the model trained on MNIST is in the notebook [mnist-example.ipynb](notebooks/mnist-example.ipynb).
 
 ## Implementation Notes
 
