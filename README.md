@@ -23,7 +23,7 @@ python train.py --config ./config/cifar10.py
 
 ## Samples
 
-Samples with 5 (left) and 2 (right) step generation, MNIST trained over 200k steps with a batch size of 512 in [consistency-mnist.ipynb](notebooks/consistency-mnist.ipynb).
+Samples with 5 (left) and 2 (right) step generation, MNIST trained over 100k steps with a batch size of 512 in [consistency-mnist.ipynb](notebooks/mnist-example.ipynb).
 
 ![5- and 2-step samples for MNIST.](notebooks/plots/mnist_samples.png)
 
